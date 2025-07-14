@@ -8,3 +8,6 @@ class AskResponse(BaseModel):
     question: str
     answer: str
     retrieved: List[str]
+
+class ConversationRequest(BaseModel):
+    question: str
