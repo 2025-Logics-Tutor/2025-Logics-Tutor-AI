@@ -1,18 +1,11 @@
-import os
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
-from dotenv import load_dotenv
+from config.settings import Settings  # <- 여기만 바뀜
 
-load_dotenv()
+settings = Settings()  # BaseSettings가 알아서 .env 읽어줌
 
-MYSQL_HOST = os.getenv("MYSQL_HOST")
-MYSQL_PORT = os.getenv("MYSQL_PORT")
-MYSQL_DB = os.getenv("MYSQL_DB")
-MYSQL_USER = os.getenv("MYSQL_USER")
-MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD")
-
-DATABASE_URL = f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}?charset=utf8mb4"
+DATABASE_URL = f"mysql+pymysql://{settings.MYSQL_USER}:{settings.MYSQL_PASSWORD}@{settings.MYSQL_HOST}:{settings.MYSQL_PORT}/{settings.MYSQL_DB}?charset=utf8mb4"
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
