@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi_jwt_auth import AuthJWT
+from starlette.middleware.cors import CORSMiddleware
 
 from model.database import Base, engine
 from model.user import User, RefreshToken
@@ -16,6 +17,14 @@ def get_config():
     return Settings()
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],  # 또는 ["*"] 개발 중일 땐 전체 허용
+    allow_credentials=True,
+    allow_methods=["*"],  # ✅ OPTIONS 포함해서 전부 허용
+    allow_headers=["*"],
+)
 
 from api.auth_router import router as auth_router
 app.include_router(auth_router)
