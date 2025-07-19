@@ -18,9 +18,9 @@ gpt_service = GPTService()
 
 def get_system_prompt(level: Level) -> str:
     return {
-        Level.ELEMENTARY: "너는 초등학생에게 설명해주는 친절한 튜터야. 쉬운 말로 풀어서 설명해줘.",
-        Level.UNIV: "너는 대학생에게 설명해주는 튜터야. 핵심 개념을 정확하게 전달해줘.",
-        Level.GRAD: "너는 대학원생에게 설명해주는 전문 튜터야. 깊이 있는 설명과 예시를 포함해줘."
+        Level.ELEMENTARY: "너는 초등학생에게 설명해주는 친절한 논리학 튜터야. 쉬운 말로 풀어서 설명해줘.",
+        Level.UNIV: "너는 대학생에게 설명해주는 논리학 튜터야. 핵심 개념을 정확하게 전달해줘.",
+        Level.GRAD: "너는 대학원생에게 설명해주는 전문 논리학 튜터야. 깊이 있는 설명과 예시를 포함해줘."
     }[level]
 
 
@@ -66,7 +66,7 @@ async def start_new_chat_stream(
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
 
-    conversation = Conversation(user_id=user.id)
+    conversation = Conversation(user_id=user.id, title=message)
     db.add(conversation)
     db.commit()
     db.refresh(conversation)
@@ -76,7 +76,14 @@ async def start_new_chat_stream(
 
     system_prompt = get_system_prompt(level)
     if quote:
-        system_prompt = f'다음 인용구를 참고하여 사용자의 질문에 대답하세요: "{quote}"\n\n{system_prompt}'
+        system_prompt = (
+            f'당신은 논리학 전문 튜터입니다.\n\n'
+            f'반드시 아래 인용구를 가장 중요한 맥락으로 삼아 질문에 답해야 합니다.\n'
+            f'이 인용구는 사용자의 의도를 이해하는 데 결정적인 단서입니다.\n\n'
+            f'[인용구]\n"{quote}"\n\n'
+            f'이 내용을 중심에 두고, 관련된 질문에 대해 논리적으로 명확하게 설명하세요.\n\n'
+            f'{system_prompt}'
+        )
 
     messages = [
         {"role": "system", "content": system_prompt},
@@ -88,6 +95,7 @@ async def start_new_chat_stream(
         async for chunk in gpt_service.stream_chat(messages):
             buffer += chunk
             yield chunk
+        buffer = buffer.replace("\\\\", "\\")
         db.add(Message(conversation_id=conversation.id, role="ASSISTANT", content=buffer))
         db.commit()
 
@@ -121,7 +129,14 @@ async def stream_chat_existing(
 
     system_prompt = get_system_prompt(level)
     if quote:
-        system_prompt = f'다음 인용구를 참고하여 사용자의 질문에 대답하세요: "{quote}"\n\n{system_prompt}'
+        system_prompt = (
+            f'당신은 논리학 전문 튜터입니다.\n\n'
+            f'반드시 아래 인용구를 가장 중요한 맥락으로 삼아 질문에 답해야 합니다.\n'
+            f'이 인용구는 사용자의 의도를 이해하는 데 결정적인 단서입니다.\n\n'
+            f'[인용구]\n"{quote}"\n\n'
+            f'이 내용을 중심에 두고, 관련된 질문에 대해 논리적으로 명확하게 설명하세요.\n\n'
+            f'{system_prompt}'
+        )
 
     messages = [{"role": "system", "content": system_prompt}]
     messages += [{"role": msg.role.lower(), "content": msg.content} for msg in history]
@@ -132,6 +147,7 @@ async def stream_chat_existing(
         async for chunk in gpt_service.stream_chat(messages):
             buffer += chunk
             yield chunk
+        buffer = buffer.replace("\\\\", "\\")
         db.add(Message(conversation_id=conversation_id, role="ASSISTANT", content=buffer))
         db.commit()
 
