@@ -46,8 +46,6 @@ def signup(request: SignupRequest, db: Session):
     new_user = User(
         email=request.email,
         password_hash=get_password_hash(request.password),
-        nickname=request.nickname,
-        level=LevelEnum(request.level)
     )
     db.add(new_user)
     db.commit()

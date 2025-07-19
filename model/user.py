@@ -15,9 +15,6 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, nullable=False)
     password_hash = Column(String, nullable=False)
-    nickname = Column(String, nullable=False)
-    level = Column(SqlEnum(LevelEnum), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
 
     # 관계
     conversations = relationship("Conversation", back_populates="user")

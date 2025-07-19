@@ -20,8 +20,6 @@ class LoginRequest(BaseModel):
 class SignupRequest(BaseModel):
     email: EmailStr
     password: str
-    nickname: str
-    level: Level
 
 from pydantic import BaseModel
 from typing import List
