@@ -1,4 +1,4 @@
-from fastapi import Depends, APIRouter
+from fastapi import Depends, APIRouter, Request
 from fastapi_jwt_auth import AuthJWT
 from model.schema import LoginRequest, TokenResponse, SignupRequest
 from service.auth_service import login, signup
@@ -25,8 +25,12 @@ from service.auth_service import refresh_token
 
 
 @router.post("/refresh")
-def refresh_access_token(authorize: AuthJWT = Depends(), db: Session = Depends(get_db)):
-    new_access_token = refresh_token(authorize, db)
+def refresh_access_token(
+        authorize: AuthJWT = Depends(),
+        db: Session = Depends(get_db),
+        request: Request = None
+):
+    new_access_token = refresh_token(authorize, db, request)
     return {"access_token": new_access_token}
 
 

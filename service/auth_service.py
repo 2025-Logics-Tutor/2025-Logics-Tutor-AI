@@ -1,5 +1,5 @@
 from fastapi_jwt_auth import AuthJWT
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from passlib.context import CryptContext
 from model.user import User, RefreshToken
 from sqlalchemy.orm import Session
@@ -57,17 +57,23 @@ def signup(request: SignupRequest, db: Session):
 
 from model.user import RefreshToken
 
-def refresh_token(Authorize: AuthJWT, db: Session) -> str:
+def refresh_token(Authorize: AuthJWT, db: Session, request: Request) -> str:
     try:
         Authorize.jwt_refresh_token_required()
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=401, detail="Refresh token이 유효하지 않습니다.")
 
     current_user = Authorize.get_jwt_subject()
     stored_token = db.query(RefreshToken).filter(RefreshToken.email == current_user).first()
 
-    # DB에 저장된 refresh token과 비교
-    if not stored_token or stored_token.token != Authorize._token:
+    # 🔥 Authorization 헤더에서 토큰 꺼내기
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authorization 헤더가 잘못되었습니다.")
+
+    incoming_token = auth_header.split(" ")[1]
+
+    if not stored_token or stored_token.token != incoming_token:
         raise HTTPException(status_code=401, detail="유효하지 않은 refresh token입니다.")
 
     # 새 access token 발급
