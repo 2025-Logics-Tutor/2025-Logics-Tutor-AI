@@ -24,6 +24,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],  # ✅ OPTIONS 포함해서 전부 허용
     allow_headers=["*"],
+    expose_headers=["X-Conversation-Id"],
 )
 
 from api.auth_router import router as auth_router

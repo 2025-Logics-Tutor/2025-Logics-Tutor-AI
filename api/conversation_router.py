@@ -3,6 +3,7 @@ import json
 from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.responses import StreamingResponse
 from fastapi_jwt_auth import AuthJWT
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from model.conversation import Conversation
@@ -36,7 +37,7 @@ async def get_conversations(
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
 
-    conversations = db.query(Conversation).filter_by(user_id=user.id).all()
+    conversations = db.query(Conversation).filter_by(user_id=user.id).order_by(desc(Conversation.id)).all()
 
     result = []
     for c in conversations:
