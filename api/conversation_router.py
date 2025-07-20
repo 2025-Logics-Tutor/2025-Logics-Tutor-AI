@@ -12,6 +12,7 @@ from model.schema import ChatResponse, ConversationResponse, ConversationsRespon
 from service.gpt_service import GPTService
 from model.message import Message
 from model.user import User
+from service.rag_query_service import build_rag_messages  # ✅ RAG 연동 추가
 
 router = APIRouter(prefix="/api/conversations")
 gpt_service = GPTService()
@@ -24,7 +25,6 @@ def get_system_prompt(level: Level) -> str:
     }[level]
 
 
-# ✅ GET /api/conversations - 대화 목록 가져오기
 @router.get("", response_model=List[ConversationsResponse])
 async def get_conversations(
         Authorize: AuthJWT = Depends(),
@@ -32,7 +32,6 @@ async def get_conversations(
 ):
     Authorize.jwt_required()
     user_email = Authorize.get_jwt_subject()
-
     user = db.query(User).filter_by(email=user_email).first()
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
@@ -51,7 +50,6 @@ async def get_conversations(
     return result
 
 
-# ✅ 새 대화 시작 (conversationId → 헤더)
 @router.get("/chat-new")
 async def start_new_chat_stream(
         message: str = Query(...),
@@ -66,40 +64,41 @@ async def start_new_chat_stream(
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
 
+    # 새 대화 생성
     conversation = Conversation(user_id=user.id, title=message)
     db.add(conversation)
     db.commit()
     db.refresh(conversation)
 
+    # 첫 사용자 메시지 저장
     db.add(Message(conversation_id=conversation.id, role="USER", content=message))
     db.commit()
 
-    system_prompt = get_system_prompt(level)
-    if quote:
-        system_prompt = (
-            f'당신은 논리학 전문 튜터입니다.\n\n'
-            f'반드시 아래 인용구를 가장 중요한 맥락으로 삼아 질문에 답해야 합니다.\n'
-            f'이 인용구는 사용자의 의도를 이해하는 데 결정적인 단서입니다.\n\n'
-            f'[인용구]\n"{quote}"\n\n'
-            f'이 내용을 중심에 두고, 관련된 질문에 대해 논리적으로 명확하게 설명하세요.\n\n'
-            f'{system_prompt}'
-        )
+    # ✅ history 없음
+    history: List[Dict[str, str]] = []
 
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": message}
-    ]
+    # ✅ RAG 메시지 생성 → is_documented 값도 함께 받음
+    messages, is_documented = await build_rag_messages(
+        user_message=message,
+        history=history,
+        level=level,
+        quote=quote
+    )
 
     async def stream_response() -> AsyncGenerator[str, None]:
         buffer = ""
         async for chunk in gpt_service.stream_chat(messages):
             buffer += chunk
             yield chunk
-        buffer = buffer.replace("\\\\", "\\")
         db.add(Message(conversation_id=conversation.id, role="ASSISTANT", content=buffer))
         db.commit()
 
-    headers = {"X-Conversation-Id": str(conversation.id)}
+    # ✅ 헤더에 isDocumented 포함
+    headers = {
+        "X-Conversation-Id": str(conversation.id),
+        "X-Is-Documented": str(is_documented).lower()  # "true" or "false"
+    }
+
     return StreamingResponse(stream_response(), media_type="text/event-stream", headers=headers)
 
 
@@ -118,43 +117,42 @@ async def stream_chat_existing(
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
 
+    # 기존 대화 확인
     conversation = db.query(Conversation).filter_by(id=conversation_id, user_id=user.id).first()
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
+    # 사용자 메시지 저장
     db.add(Message(conversation_id=conversation_id, role="USER", content=message))
     db.commit()
 
-    history = db.query(Message).filter_by(conversation_id=conversation_id).order_by(Message.created_at.asc()).all()
+    # ✅ 기존 대화 히스토리 구성
+    past_messages = db.query(Message).filter_by(conversation_id=conversation_id).order_by(Message.created_at.asc()).all()
+    history = [{"role": m.role.lower(), "content": m.content} for m in past_messages]
 
-    system_prompt = get_system_prompt(level)
-    if quote:
-        system_prompt = (
-            f'당신은 논리학 전문 튜터입니다.\n\n'
-            f'반드시 아래 인용구를 가장 중요한 맥락으로 삼아 질문에 답해야 합니다.\n'
-            f'이 인용구는 사용자의 의도를 이해하는 데 결정적인 단서입니다.\n\n'
-            f'[인용구]\n"{quote}"\n\n'
-            f'이 내용을 중심에 두고, 관련된 질문에 대해 논리적으로 명확하게 설명하세요.\n\n'
-            f'{system_prompt}'
-        )
-
-    messages = [{"role": "system", "content": system_prompt}]
-    messages += [{"role": msg.role.lower(), "content": msg.content} for msg in history]
-    messages.append({"role": "user", "content": message})
+    # ✅ RAG 메시지 생성 → is_documented 값도 함께 받음
+    messages, is_documented = await build_rag_messages(
+        user_message=message,
+        history=history,
+        level=level,
+        quote=quote
+    )
 
     async def stream_response() -> AsyncGenerator[str, None]:
         buffer = ""
         async for chunk in gpt_service.stream_chat(messages):
             buffer += chunk
             yield chunk
-        buffer = buffer.replace("\\\\", "\\")
         db.add(Message(conversation_id=conversation_id, role="ASSISTANT", content=buffer))
         db.commit()
 
-    return StreamingResponse(stream_response(), media_type="text/event-stream")
+    # ✅ 헤더에 isDocumented 포함
+    headers = {
+        "X-Is-Documented": str(is_documented).lower()
+    }
 
+    return StreamingResponse(stream_response(), media_type="text/event-stream", headers=headers)
 
-# ✅ DELETE /api/conversations/{conversation_id} - 대화 삭제
 @router.delete("/{conversation_id}")
 async def delete_conversation(
         conversation_id: int,
@@ -163,7 +161,6 @@ async def delete_conversation(
 ):
     Authorize.jwt_required()
     user_email = Authorize.get_jwt_subject()
-
     user = db.query(User).filter_by(email=user_email).first()
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
@@ -178,7 +175,6 @@ async def delete_conversation(
     return {"message": "삭제 완료"}
 
 
-# ✅ GET /api/conversations/{conversation_id} - 대화 내용 조회
 @router.get("/{conversation_id}", response_model=ConversationResponse)
 async def get_conversation(
         conversation_id: int,
@@ -187,7 +183,6 @@ async def get_conversation(
 ):
     Authorize.jwt_required()
     user_email = Authorize.get_jwt_subject()
-
     user = db.query(User).filter_by(email=user_email).first()
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")

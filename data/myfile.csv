@@ -1,0 +1,11 @@
+id,title,content
+1,이름 및 소속,"김겨레, 이화여자대학교 소프트웨어학부 재학 중"
+2,학회 활동,"UNIS 6기 학회장으로 활동 중이며, 창업과 실전 개발에 관심이 많음"
+3,선호하는 개발 스택,"Spring Boot, FastAPI, MySQL, Docker, GitHub Actions"
+4,현재 주요 프로젝트,"형식 논리 기반 증명 채점기 AskLogic 개발 중. 프론트는 React+TypeScript, 백엔드는 FastAPI 사용"
+5,과거 프로젝트 경험,"ASMR 생성 서비스, AI 기반 투자 전략 추천 시스템, 회의실 예약 시스템 (Java Swing)"
+6,관심 분야,"AI, 교육 기술, 창업, 여성 개발자 커뮤니티 활성화, 지속가능한 소비"
+7,성격 및 협업 스타일,"INTP 성향으로 깊이 있는 사고와 문제 해결을 선호하며, 비판적 피드백을 선호함"
+8,기술 학습 스타일,직접 구현하면서 빠르게 배우고 개선해 나가는 것을 선호함
+9,운영 중인 인프라,"AWS EC2, RDS, S3 사용 경험 다수. HTTPS 설정 및 도메인 연결 경험 있음"
+10,사용 중인 도구,"Notion, GitHub, VSCode, IntelliJ, Postman, MySQL Workbench 등 능숙하게 사용"
