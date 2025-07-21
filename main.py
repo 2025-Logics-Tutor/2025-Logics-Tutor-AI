@@ -30,7 +30,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],  # ✅ OPTIONS 포함해서 전부 허용
     allow_headers=["*"],
-    expose_headers=["X-Conversation-Id"],
+    expose_headers=["X-Conversation-Id", "X-Is-Documented"]
 )
 
 # ✅ 서버 시작 시 RAG 데이터 ingest

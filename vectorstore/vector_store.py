@@ -1,14 +1,25 @@
-# chromadb/vector_store.py
+# ✅ vectorstore/vector_store.py
 
 import chromadb
 from chromadb.config import Settings
 from typing import List, Dict
 
-# 기본 Chroma 설정 (로컬 DB 경로 등)
-import chromadb
+# ✅ 사용자 정의 임베딩 함수 연결
+from service.embedding_service import embed_texts
+from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 
+class SentenceTransformerEmbeddingFunction(DefaultEmbeddingFunction):
+    def __call__(self, texts):
+        return embed_texts(texts)
+
+embedding_fn = SentenceTransformerEmbeddingFunction()
+
+# ✅ Chroma 클라이언트 및 컬렉션 초기화
 client = chromadb.PersistentClient(path="chromadb_store")
-collection = client.get_or_create_collection("documents")
+collection = client.get_or_create_collection(
+    name="documents",
+    embedding_function=embedding_fn
+)
 
 def add_documents(docs: List[Dict]):
     """
@@ -24,10 +35,9 @@ def add_documents(docs: List[Dict]):
         metadatas=metadatas
     )
 
-
 def query_top_k(query: str, k: int = 3) -> List[Dict]:
     """
-    유사한 문서 top-k 검색
+    유사한 문서 top-k 검색 (자동 임베딩)
     """
     results = collection.query(
         query_texts=[query],

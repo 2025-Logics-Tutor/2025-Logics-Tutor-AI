@@ -98,6 +98,7 @@ async def start_new_chat_stream(
         "X-Conversation-Id": str(conversation.id),
         "X-Is-Documented": str(is_documented).lower()  # "true" or "false"
     }
+    print(str(is_documented).lower())
 
     return StreamingResponse(stream_response(), media_type="text/event-stream", headers=headers)
 
@@ -150,6 +151,7 @@ async def stream_chat_existing(
     headers = {
         "X-Is-Documented": str(is_documented).lower()
     }
+    print(str(is_documented).lower())
 
     return StreamingResponse(stream_response(), media_type="text/event-stream", headers=headers)
 
