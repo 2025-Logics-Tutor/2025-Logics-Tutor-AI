@@ -10,16 +10,22 @@ from vectorstore.vector_store import query_top_k
 from model.schema import Level
 
 def get_system_prompt(level: Level, with_context: bool, context: str = "") -> str:
+    basic = """- 논리식은 수식, LaTeX을 사용하지 말고 텍스트로 표현하세요.
+    - 예: P <-> Q, P AND Q, P OR Q, NOT P, P
+    """
     if with_context:
-        return (
+        return basic + (
             "너는 사용자의 질문에 성실하게 답변하는 논리학 튜터야.\n"
             "가능한 경우 아래 문맥(Context)을 기반으로만 답변해야 해.\n"
             "문맥이 충분하지 않다면, '잘 모르겠다'고 말해줘. 추측하지 마!\n\n"
-            f"💡 설명 대상 수준: {level.name}\n"
             f"[문맥 Context]\n{context}"
+            "초등학생 대상일 경우, 어려운 용어나 기호는 피하고, 아주 쉽게 풀어서 설명해줘.\n"
+            "대학생 대상일 경우, 핵심 개념을 정확히 전달하고, 예시를 통해 이해를 도와줘.\n"
+            "대학원생 대상일 경우, 깊이 있는 개념 설명과 논리적 근거, 예시를 포함해서 설명해줘.\n"
+            f"💡 설명 대상 수준: {level.name}\n"
         )
     else:
-        return {
+        return basic + {
             Level.ELEMENTARY: (
                 "너는 **초등학생**에게 설명하는 친절한 논리학 튜터야.\n"
                 "어려운 용어나 기호는 피하고, 아주 쉽게 풀어서 설명해줘."

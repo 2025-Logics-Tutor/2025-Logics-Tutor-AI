@@ -1,4 +1,4 @@
-from typing import List, AsyncGenerator
+from typing import List, AsyncGenerator, Dict
 import json
 from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.responses import StreamingResponse
@@ -74,10 +74,10 @@ async def start_new_chat_stream(
     db.add(Message(conversation_id=conversation.id, role="USER", content=message))
     db.commit()
 
-    # ✅ history 없음
+    # history 없음
     history: List[Dict[str, str]] = []
 
-    # ✅ RAG 메시지 생성 → is_documented 값도 함께 받음
+    # RAG 메시지 생성
     messages, is_documented = await build_rag_messages(
         user_message=message,
         history=history,
@@ -90,15 +90,19 @@ async def start_new_chat_stream(
         async for chunk in gpt_service.stream_chat(messages):
             buffer += chunk
             yield chunk
-        db.add(Message(conversation_id=conversation.id, role="ASSISTANT", content=buffer))
+        # ✅ assistant 응답 메시지 저장 시 is_documented 함께 저장
+        db.add(Message(
+            conversation_id=conversation.id,
+            role="ASSISTANT",
+            content=buffer,
+            is_documented=is_documented
+        ))
         db.commit()
 
-    # ✅ 헤더에 isDocumented 포함
     headers = {
         "X-Conversation-Id": str(conversation.id),
-        "X-Is-Documented": str(is_documented).lower()  # "true" or "false"
+        "X-Is-Documented": str(is_documented).lower()
     }
-    print(str(is_documented).lower())
 
     return StreamingResponse(stream_response(), media_type="text/event-stream", headers=headers)
 
@@ -118,20 +122,16 @@ async def stream_chat_existing(
     if not user:
         raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다")
 
-    # 기존 대화 확인
     conversation = db.query(Conversation).filter_by(id=conversation_id, user_id=user.id).first()
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    # 사용자 메시지 저장
     db.add(Message(conversation_id=conversation_id, role="USER", content=message))
     db.commit()
 
-    # ✅ 기존 대화 히스토리 구성
     past_messages = db.query(Message).filter_by(conversation_id=conversation_id).order_by(Message.created_at.asc()).all()
     history = [{"role": m.role.lower(), "content": m.content} for m in past_messages]
 
-    # ✅ RAG 메시지 생성 → is_documented 값도 함께 받음
     messages, is_documented = await build_rag_messages(
         user_message=message,
         history=history,
@@ -144,17 +144,20 @@ async def stream_chat_existing(
         async for chunk in gpt_service.stream_chat(messages):
             buffer += chunk
             yield chunk
-        db.add(Message(conversation_id=conversation_id, role="ASSISTANT", content=buffer))
+        # ✅ assistant 응답 메시지 저장 시 is_documented 함께 저장
+        db.add(Message(
+            conversation_id=conversation_id,
+            role="ASSISTANT",
+            content=buffer,
+            is_documented=is_documented
+        ))
         db.commit()
 
-    # ✅ 헤더에 isDocumented 포함
     headers = {
         "X-Is-Documented": str(is_documented).lower()
     }
-    print(str(is_documented).lower())
 
     return StreamingResponse(stream_response(), media_type="text/event-stream", headers=headers)
-
 @router.delete("/{conversation_id}")
 async def delete_conversation(
         conversation_id: int,
@@ -203,7 +206,8 @@ async def get_conversation(
                 message_id=m.id,
                 role=m.role.lower(),
                 content=m.content,
-                created_at=m.created_at
+                created_at=m.created_at,
+                is_documented=m.is_documented
             ) for m in messages
         ]
     )

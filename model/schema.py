@@ -22,7 +22,7 @@ class SignupRequest(BaseModel):
     password: str
 
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 
 
@@ -31,6 +31,7 @@ class ChatResponse(BaseModel):
     role: str         # "user" or "assistant"
     content: str
     created_at: datetime
+    is_documented: Optional[bool] = None
 
 
 class ConversationResponse(BaseModel):
